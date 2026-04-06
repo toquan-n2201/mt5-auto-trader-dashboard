@@ -1,0 +1,20 @@
+{
+  "name": "MT5 AutoTrader Desktop",
+  "short_name": "MT5Trader",
+  "description": "Professional MetaTrader 5 Auto-Trading Dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "scope": "/",
+  "background_color": "#0a0a0c",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2164/2164832.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

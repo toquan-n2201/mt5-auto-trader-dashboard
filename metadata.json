@@ -1,0 +1,5 @@
+{
+  "name": "MT5 Auto Trader Dashboard",
+  "description": "A real-time trading bot visualizer for XAUUSD and BTCUSD using SMA and RSI strategies.",
+  "requestFramePermissions": []
+}
