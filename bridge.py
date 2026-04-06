@@ -15,7 +15,7 @@ except ImportError as e:
 
 # CONFIGURATION
 # Đảm bảo URL này khớp với URL App của Boss
-BACKEND_URL = "https://ais-dev-6coxkyajd7gmcye3xvkn3s-213335622424.asia-southeast1.run.app" 
+BACKEND_URL = "https://https://mt5-auto-trader-dashboard-6v68.vercel.app" 
 POLL_INTERVAL = 1.0 # Giây
 
 def execute_command(cmd):
