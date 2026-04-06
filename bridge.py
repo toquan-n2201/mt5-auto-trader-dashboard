@@ -14,12 +14,10 @@ except ImportError as e:
     sys.exit(1)
 
 # CONFIGURATION
-# Đảm bảo URL này khớp với URL App của Boss
-BACKEND_URL = "https://https://mt5-auto-trader-dashboard-6v68.vercel.app" 
-POLL_INTERVAL = 1.0 # Giây
+BACKEND_URL = "https://mt5-auto-trader-dashboard-6v68.vercel.app" 
+POLL_INTERVAL = 1.0 
 
 def execute_command(cmd):
-    """Thực thi lệnh từ Web App xuống MT5"""
     action = cmd.get('action')
     symbol = cmd.get('symbol')
     volume = float(cmd.get('volume', 0.01))
@@ -42,104 +40,63 @@ def execute_command(cmd):
         
         result = mt5.order_send(request)
         if result.retcode != mt5.TRADE_RETCODE_DONE:
-            print(f"Lỗi đặt lệnh {action}: {result.comment}")
+            print(f"❌ Lỗi đặt lệnh {action}: {result.comment}")
         else:
-            print(f"Đặt lệnh {action} {symbol} thành công!")
-            
-    elif action == 'CLOSE':
-        ticket = int(cmd.get('ticket', 0))
-        if ticket > 0:
-            positions = mt5.positions_get(ticket=ticket)
-            if positions:
-                pos = positions[0]
-                tick = mt5.symbol_info_tick(pos.symbol)
-                type_close = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
-                price_close = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
-                
-                request = {
-                    "action": mt5.TRADE_ACTION_DEAL,
-                    "symbol": pos.symbol,
-                    "volume": pos.volume,
-                    "type": type_close,
-                    "position": pos.ticket,
-                    "price": price_close,
-                    "magic": 234000,
-                    "comment": "Close from Web",
-                    "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-                mt5.order_send(request)
-                print(f"Đã đóng lệnh #{ticket}")
-            
-    elif action == 'CLOSE_ALL':
-        positions = mt5.positions_get(symbol=symbol)
-        if positions:
-            for pos in positions:
-                tick = mt5.symbol_info_tick(pos.symbol)
-                type_close = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
-                price_close = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
-                
-                request = {
-                    "action": mt5.TRADE_ACTION_DEAL,
-                    "symbol": pos.symbol,
-                    "volume": pos.volume,
-                    "type": type_close,
-                    "position": pos.ticket,
-                    "price": price_close,
-                    "magic": 234000,
-                    "comment": "Close from Web",
-                    "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-                mt5.order_send(request)
-            print(f"Đã đóng toàn bộ lệnh {symbol}")
+            print(f"✅ Đặt lệnh {action} {symbol} thành công!")
 
 def start_bridge():
     print("\n" + "🚀" * 20)
     print("--- MT5 TO WEB BRIDGE IS RUNNING ---")
-    print(f"Backend: {BACKEND_URL}")
+    print(f"Target Web: {BACKEND_URL}")
     print("🚀" * 20 + "\n")
     
     if not mt5.initialize():
-        print("❌ MT5 Initialization failed. Hãy mở phần mềm MT5 lên trước!")
+        print("❌ LỖI: Không thể khởi động MT5. Hãy chắc chắn Boss đã mở phần mềm MT5!")
         return
 
-    print("✅ Đã kết nối với MT5 Terminal.")
+    print("✅ Bước 1: Đã kết nối với phần mềm MT5.")
     
     while True:
         try:
-            # 1. Đồng bộ thông tin tài khoản
+            # 1. Kiểm tra tài khoản MT5
             acc = mt5.account_info()
-            if acc:
-                payload = {
-                    "login": acc.login,
-                    "balance": acc.balance,
-                    "equity": acc.equity,
-                    "server": acc.server,
-                    "currency": acc.currency,
-                    "leverage": acc.leverage,
-                    "connected": True
-                }
-                try:
-                    requests.post(f"{BACKEND_URL}/api/bridge/sync", json=payload, timeout=2)
-                except:
-                    pass
+            if acc is None:
+                print("⏳ Bước 2: Đang đợi Boss ĐĂNG NHẬP tài khoản vào MT5...")
+                time.sleep(2)
+                continue
 
-            # 2. Đồng bộ các lệnh đang chạy (Positions)
+            # 2. Gửi dữ liệu lên Web
+            payload = {
+                "login": acc.login,
+                "balance": acc.balance,
+                "equity": acc.equity,
+                "server": acc.server,
+                "currency": acc.currency,
+                "leverage": acc.leverage,
+                "connected": True
+            }
+            
+            print(f"📡 Bước 3: Đang gửi dữ liệu TK {acc.login} lên Web App...")
+            
+            try:
+                r = requests.post(f"{BACKEND_URL}/api/bridge/sync", json=payload, timeout=5)
+                if r.status_code == 200:
+                    print(f"🟢 KẾT NỐI THÀNH CÔNG! App trên Web sẽ sáng đèn ngay bây giờ.")
+                else:
+                    print(f"❌ Lỗi Server ({r.status_code}): Kiểm tra lại URL Backend.")
+            except Exception as e:
+                print(f"❌ Lỗi mạng: Không thể gửi dữ liệu lên Web. (Chi tiết: {e})")
+
+            # 3. Đồng bộ Positions
             positions = mt5.positions_get()
             pos_list = []
             if positions:
                 for p in positions:
                     pos_list.append({
-                        "ticket": p.ticket,
-                        "symbol": p.symbol,
-                        "volume": p.volume,
+                        "ticket": p.ticket, "symbol": p.symbol, "volume": p.volume,
                         "type": "BUY" if p.type == 0 else "SELL",
-                        "price_open": p.price_open,
-                        "price_current": p.price_current,
-                        "profit": p.profit,
-                        "sl": p.sl,
-                        "tp": p.tp
+                        "price_open": p.price_open, "price_current": p.price_current,
+                        "profit": p.profit, "sl": p.sl, "tp": p.tp
                     })
             
             try:
@@ -147,14 +104,14 @@ def start_bridge():
             except:
                 pass
 
-            # 3. Kiểm tra lệnh từ Web App
+            # 4. Kiểm tra lệnh từ Web
             try:
                 response = requests.get(f"{BACKEND_URL}/api/bridge/commands", timeout=2)
                 if response.status_code == 200:
                     commands = response.json()
                     for cmd in commands:
                         execute_command(cmd)
-            except Exception as e:
+            except:
                 pass
 
             time.sleep(POLL_INTERVAL)
